@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Particle Hand Control</title>
+  <style>
+    body, html { margin:0; padding:0; overflow:hidden; }
+    #ui { position:fixed; top:10px; left:10px; background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; color:white; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <label>粒子颜色: <input type="color" id="colorPicker" value="#ff6699"></label><br>
+    <label>模型:
+      <select id="modelSelect">
+        <option value="heart">爱心</option>
+        <option value="flower">花朵</option>
+        <option value="saturn">土星</option>
+        <option value="buddha">佛像</option>
+        <option value="firework">烟花</option>
+      </select>
+    </label><br>
+    <button id="fullscreenBtn">全屏</button>
+  </div>
+
+  <video id="cam" autoplay playsinline style="display:none"></video>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.161/build/three.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
