@@ -1,31 +1,71 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Particle Hand Control</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Three.js 手势粒子（iPhone 兼容）</title>
+  <meta name="description" content="Three.js 粒子系统，通过摄像头手势（MediaPipe Hands）控制。适配 iPhone Safari (HTTPS required)"/>
   <style>
-    body, html { margin:0; padding:0; overflow:hidden; }
-    #ui { position:fixed; top:10px; left:10px; background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; color:white; }
+    :root{--bg:linear-gradient(180deg,#071025 0%,#0b1630 100%);--panel:rgba(255,255,255,0.06);}
+    html,body{height:100%;margin:0;font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:var(--bg); color:#e6eef8}
+    #app{position:fixed;inset:0;display:block;overflow:hidden}
+    canvas{display:block;width:100%;height:100%}
+    .ui{position:fixed;left:12px;top:12px;background:rgba(17,24,39,0.6);padding:12px;border-radius:12px;backdrop-filter:blur(8px);box-shadow:0 8px 30px rgba(2,6,23,0.6);min-width:220px;z-index:40}
+    .ui h3{margin:0 0 8px 0;font-size:14px}
+    .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+    select,input[type=range]{width:100%}
+    input[type=color]{width:44px;height:36px;border-radius:8px;padding:0;border:none}
+    .fs{position:fixed;right:12px;top:12px;padding:10px;border-radius:10px;background:rgba(17,24,39,0.6);z-index:40}
+    #startBtn{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;padding:14px 20px;background:#2563eb;border:none;color:white;border-radius:12px;font-weight:600;box-shadow:0 8px 30px rgba(37,99,235,0.18)}
+    #hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,0.35);font-size:12px;z-index:40}
+    #camPreview{position:fixed;right:12px;bottom:12px;width:140px;height:100px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);background:#000;z-index:30;display:none}
+    video{width:100%;height:100%;object-fit:cover}
+    @media (max-width:720px){ .ui{left:10px;right:10px;top:10px} #camPreview{display:block} }
   </style>
 </head>
 <body>
-  <div id="ui">
-    <label>粒子颜色: <input type="color" id="colorPicker" value="#ff6699"></label><br>
-    <label>模型:
-      <select id="modelSelect">
-        <option value="heart">爱心</option>
-        <option value="flower">花朵</option>
-        <option value="saturn">土星</option>
-        <option value="buddha">佛像</option>
-        <option value="firework">烟花</option>
-      </select>
-    </label><br>
-    <button id="fullscreenBtn">全屏</button>
+  <div id="app">
+    <canvas id="gl"></canvas>
+
+    <div class="ui" id="ui">
+      <h3>手势粒子（iPhone）</h3>
+      <div class="row">
+        <select id="shapeSelect">
+          <option value="heart">爱心</option>
+          <option value="flower">花朵</option>
+          <option value="saturn">土星</option>
+          <option value="buddha">佛像</option>
+          <option value="firework">烟花</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>颜色 <input id="colorPicker" type="color" value="#ff66b2"></label>
+      </div>
+      <div class="row">
+        <label>数量 <input id="countRange" type="range" min="512" max="12000" step="128" value="4096"></label>
+      </div>
+      <div class="row">
+        <label>大小 <input id="sizeRange" type="range" min="1" max="12" step="0.5" value="4"></label>
+      </div>
+      <div class="row">
+        <label>灵敏度 <input id="sensitivity" type="range" min="0.2" max="3.0" step="0.1" value="1.0"></label>
+      </div>
+      <div class="row">
+        <button id="resetBtn">重置视角</button>
+      </div>
+      <div style="font-size:12px;color:#cfe3ff">提示：首次点击“开始”并允许摄像头访问；页面必须通过 HTTPS 打开以使用摄像头。</div>
+    </div>
+
+    <button id="fs" class="fs" title="全屏">⤢</button>
+
+    <div id="camPreview"><video id="cam" playsinline muted></video></div>
+
+    <div id="hint">把相机对准双手：双手张开/合拢控制缩放，拇指-食指张合控制扩散。</div>
+
+    <button id="startBtn">开始（点击以允许相机）</button>
   </div>
 
-  <video id="cam" autoplay playsinline style="display:none"></video>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.161/build/three.min.js"></script>
-  <script src="main.js"></script>
+  <!-- 使用模块导入（CDN） -->
+  <script type="module" src="./main.js"></script>
 </body>
 </html>
