@@ -2,93 +2,107 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D 手势粒子交互</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>3D 手势粒子交互系统</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050505; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        /* 基础重置 */
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         
-        /* 视频隐藏，但必须存在于DOM中 */
-        #cam { position: absolute; top: 0; left: 0; opacity: 0; pointer-events: none; z-index: -1; width: 1px; height: 1px; }
-        
+        /* 视频层（隐藏，仅用于AI计算） */
+        #cam { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+
         /* 启动遮罩层 (iOS 必须) */
         #overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); z-index: 100;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            color: white; text-align: center; transition: opacity 0.5s;
+            transition: opacity 0.5s;
         }
-        
         #startBtn {
-            padding: 15px 40px; font-size: 18px; border-radius: 30px;
-            border: none; background: linear-gradient(45deg, #ff0055, #00aaff);
-            color: white; font-weight: bold; cursor: pointer; margin-top: 20px;
-            box-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
+            padding: 15px 40px; font-size: 18px; color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(118, 75, 162, 0.4);
+            transition: transform 0.2s;
         }
+        #startBtn:active { transform: scale(0.95); }
+        .tips { color: #aaa; margin-top: 15px; font-size: 14px; text-align: center; }
 
         /* UI 控制面板 */
-        #ui-panel {
+        #ui-container {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 380px;
-            background: rgba(20, 20, 20, 0.6); backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            padding: 15px; border-radius: 24px;
+            width: 90%; max-width: 400px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px; padding: 20px;
             border: 1px solid rgba(255,255,255,0.1);
-            z-index: 10; display: none; /* 启动后显示 */
-            flex-direction: column; gap: 12px;
-        }
-
-        .control-row { display: flex; justify-content: space-between; align-items: center; color: rgba(255,255,255,0.9); font-size: 14px; }
-        
-        select, input[type="color"] {
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-            color: white; padding: 6px 10px; border-radius: 8px; outline: none;
-        }
-
-        #status-text {
-            position: absolute; top: 20px; left: 0; width: 100%;
-            text-align: center; color: rgba(255,255,255,0.5);
-            font-size: 12px; pointer-events: none; z-index: 5;
+            display: none; /* 启动后显示 */
+            flex-direction: column; gap: 15px; color: white;
+            z-index: 10;
         }
         
-        #fullscreen-btn {
-            background: transparent; border: 1px solid rgba(255,255,255,0.3);
-            color: white; padding: 5px 15px; border-radius: 15px; font-size: 12px;
+        .control-row { display: flex; justify-content: space-between; align-items: center; }
+        label { font-size: 14px; font-weight: 500; }
+        
+        /* 自定义控件样式 */
+        select {
+            background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2);
+            padding: 8px 12px; border-radius: 8px; outline: none; font-size: 14px;
+        }
+        input[type="color"] {
+            border: none; width: 40px; height: 40px; background: none; cursor: pointer;
+        }
+
+        /* 状态指示器 */
+        #status-pill {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.6); color: #00ff88;
+            padding: 6px 16px; border-radius: 20px; font-size: 12px;
+            pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 5;
+        }
+
+        /* 全屏按钮 */
+        #fs-btn {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(255,255,255,0.1); border: none; color: white;
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; z-index: 10; display: none;
         }
     </style>
-    <!-- 引入 Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-    <!-- 启动页 -->
+    <!-- 启动遮罩 -->
     <div id="overlay">
-        <h1>✨ 粒子交互空间</h1>
-        <p style="opacity: 0.7; font-size: 14px; max-width: 80%;">请允许摄像头权限以捕捉手势<br>双手合十或张开控制粒子</p>
-        <button id="startBtn">点击开始体验</button>
-        <p id="loading-text" style="display:none; color: #00aaff; margin-top:10px; font-size:12px;">正在加载 AI 模型...</p>
+        <button id="startBtn">点击启动体验</button>
+        <div class="tips">请允许摄像头权限以捕捉手势<br>建议在光线充足环境下使用</div>
     </div>
 
-    <div id="status-text">等待摄像头启动...</div>
-    <video id="cam" playsinline webkit-playsinline muted></video>
+    <!-- 状态提示 -->
+    <div id="status-pill">AI 视觉引擎已就绪</div>
 
-    <!-- 控制面板 -->
-    <div id="ui-panel">
+    <!-- 全屏按钮 -->
+    <button id="fs-btn">⛶</button>
+
+    <!-- 隐藏的视频源 -->
+    <video id="cam" playsinline webkit-playsinline></video>
+
+    <!-- UI 面板 -->
+    <div id="ui-container">
         <div class="control-row">
-            <span>🔮 模型形态</span>
-            <select id="shape-select">
-                <option value="heart">❤️ 律动爱心</option>
+            <label>✨ 粒子模型</label>
+            <select id="model-select">
+                <option value="heart">❤️ 悬浮爱心</option>
                 <option value="saturn">🪐 环绕土星</option>
-                <option value="flower">🌸 生命之花</option>
-                <option value="spiral">🌀 银河螺旋</option>
-                <option value="cube">🧊 量子方块</option>
+                <option value="flower">🌸 几何花朵</option>
+                <option value="galaxy">🌀 螺旋星系</option>
+                <option value="fireworks">🎆 烟花炸裂</option>
             </select>
         </div>
         <div class="control-row">
-            <span>🎨 粒子颜色</span>
+            <label>🎨 粒子颜色</label>
             <input type="color" id="color-picker" value="#ff0055">
-        </div>
-        <div class="control-row" style="justify-content: center; margin-top: 5px;">
-            <button id="fullscreen-btn">切换全屏模式</button>
         </div>
     </div>
 
