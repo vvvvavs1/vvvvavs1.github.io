@@ -1,71 +1,98 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Three.js 手势粒子（iPhone 兼容）</title>
-  <meta name="description" content="Three.js 粒子系统，通过摄像头手势（MediaPipe Hands）控制。适配 iPhone Safari (HTTPS required)"/>
-  <style>
-    :root{--bg:linear-gradient(180deg,#071025 0%,#0b1630 100%);--panel:rgba(255,255,255,0.06);}
-    html,body{height:100%;margin:0;font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:var(--bg); color:#e6eef8}
-    #app{position:fixed;inset:0;display:block;overflow:hidden}
-    canvas{display:block;width:100%;height:100%}
-    .ui{position:fixed;left:12px;top:12px;background:rgba(17,24,39,0.6);padding:12px;border-radius:12px;backdrop-filter:blur(8px);box-shadow:0 8px 30px rgba(2,6,23,0.6);min-width:220px;z-index:40}
-    .ui h3{margin:0 0 8px 0;font-size:14px}
-    .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-    select,input[type=range]{width:100%}
-    input[type=color]{width:44px;height:36px;border-radius:8px;padding:0;border:none}
-    .fs{position:fixed;right:12px;top:12px;padding:10px;border-radius:10px;background:rgba(17,24,39,0.6);z-index:40}
-    #startBtn{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;padding:14px 20px;background:#2563eb;border:none;color:white;border-radius:12px;font-weight:600;box-shadow:0 8px 30px rgba(37,99,235,0.18)}
-    #hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,0.35);font-size:12px;z-index:40}
-    #camPreview{position:fixed;right:12px;bottom:12px;width:140px;height:100px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);background:#000;z-index:30;display:none}
-    video{width:100%;height:100%;object-fit:cover}
-    @media (max-width:720px){ .ui{left:10px;right:10px;top:10px} #camPreview{display:block} }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D 手势粒子交互</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        /* 视频隐藏，但必须存在于DOM中 */
+        #cam { position: absolute; top: 0; left: 0; opacity: 0; pointer-events: none; z-index: -1; width: 1px; height: 1px; }
+        
+        /* 启动遮罩层 (iOS 必须) */
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; text-align: center; transition: opacity 0.5s;
+        }
+        
+        #startBtn {
+            padding: 15px 40px; font-size: 18px; border-radius: 30px;
+            border: none; background: linear-gradient(45deg, #ff0055, #00aaff);
+            color: white; font-weight: bold; cursor: pointer; margin-top: 20px;
+            box-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
+        }
+
+        /* UI 控制面板 */
+        #ui-panel {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 380px;
+            background: rgba(20, 20, 20, 0.6); backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 15px; border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 10; display: none; /* 启动后显示 */
+            flex-direction: column; gap: 12px;
+        }
+
+        .control-row { display: flex; justify-content: space-between; align-items: center; color: rgba(255,255,255,0.9); font-size: 14px; }
+        
+        select, input[type="color"] {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; padding: 6px 10px; border-radius: 8px; outline: none;
+        }
+
+        #status-text {
+            position: absolute; top: 20px; left: 0; width: 100%;
+            text-align: center; color: rgba(255,255,255,0.5);
+            font-size: 12px; pointer-events: none; z-index: 5;
+        }
+        
+        #fullscreen-btn {
+            background: transparent; border: 1px solid rgba(255,255,255,0.3);
+            color: white; padding: 5px 15px; border-radius: 15px; font-size: 12px;
+        }
+    </style>
+    <!-- 引入 Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-  <div id="app">
-    <canvas id="gl"></canvas>
 
-    <div class="ui" id="ui">
-      <h3>手势粒子（iPhone）</h3>
-      <div class="row">
-        <select id="shapeSelect">
-          <option value="heart">爱心</option>
-          <option value="flower">花朵</option>
-          <option value="saturn">土星</option>
-          <option value="buddha">佛像</option>
-          <option value="firework">烟花</option>
-        </select>
-      </div>
-      <div class="row">
-        <label>颜色 <input id="colorPicker" type="color" value="#ff66b2"></label>
-      </div>
-      <div class="row">
-        <label>数量 <input id="countRange" type="range" min="512" max="12000" step="128" value="4096"></label>
-      </div>
-      <div class="row">
-        <label>大小 <input id="sizeRange" type="range" min="1" max="12" step="0.5" value="4"></label>
-      </div>
-      <div class="row">
-        <label>灵敏度 <input id="sensitivity" type="range" min="0.2" max="3.0" step="0.1" value="1.0"></label>
-      </div>
-      <div class="row">
-        <button id="resetBtn">重置视角</button>
-      </div>
-      <div style="font-size:12px;color:#cfe3ff">提示：首次点击“开始”并允许摄像头访问；页面必须通过 HTTPS 打开以使用摄像头。</div>
+    <!-- 启动页 -->
+    <div id="overlay">
+        <h1>✨ 粒子交互空间</h1>
+        <p style="opacity: 0.7; font-size: 14px; max-width: 80%;">请允许摄像头权限以捕捉手势<br>双手合十或张开控制粒子</p>
+        <button id="startBtn">点击开始体验</button>
+        <p id="loading-text" style="display:none; color: #00aaff; margin-top:10px; font-size:12px;">正在加载 AI 模型...</p>
     </div>
 
-    <button id="fs" class="fs" title="全屏">⤢</button>
+    <div id="status-text">等待摄像头启动...</div>
+    <video id="cam" playsinline webkit-playsinline muted></video>
 
-    <div id="camPreview"><video id="cam" playsinline muted></video></div>
+    <!-- 控制面板 -->
+    <div id="ui-panel">
+        <div class="control-row">
+            <span>🔮 模型形态</span>
+            <select id="shape-select">
+                <option value="heart">❤️ 律动爱心</option>
+                <option value="saturn">🪐 环绕土星</option>
+                <option value="flower">🌸 生命之花</option>
+                <option value="spiral">🌀 银河螺旋</option>
+                <option value="cube">🧊 量子方块</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <span>🎨 粒子颜色</span>
+            <input type="color" id="color-picker" value="#ff0055">
+        </div>
+        <div class="control-row" style="justify-content: center; margin-top: 5px;">
+            <button id="fullscreen-btn">切换全屏模式</button>
+        </div>
+    </div>
 
-    <div id="hint">把相机对准双手：双手张开/合拢控制缩放，拇指-食指张合控制扩散。</div>
-
-    <button id="startBtn">开始（点击以允许相机）</button>
-  </div>
-
-  <!-- 使用模块导入（CDN） -->
-  <script type="module" src="./main.js"></script>
+    <!-- 核心逻辑 -->
+    <script type="module" src="./main.js"></script>
 </body>
 </html>
