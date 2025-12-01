@@ -7,7 +7,7 @@ let lastVideoTime = -1;
 let scene, camera, renderer, particleSystem;
 let targetPositions = []; // 目标形状的坐标数组
 let currentPositions = []; // 当前粒子的坐标数组
-const particleCount = 12000; // 粒子数量，兼顾移动端性能
+const particleCount = 8000; // 粒子数量，兼顾移动端性能
 let currentShape = 'heart';
 let handDistance = 0.5; // 默认手势距离 (0-1)
 let isHandsDetected = false;
